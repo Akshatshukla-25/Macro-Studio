@@ -1,0 +1,49 @@
+{
+  "name": "macro-studio",
+  "version": "1.0.0",
+  "description": "Lightweight cross-platform desktop automation workflow builder",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging",
+    "test": "node test/run-tests.js",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.macrostudio.app",
+    "productName": "Macro Studio",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "data/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    }
+  },
+  "keywords": [
+    "electron",
+    "automation",
+    "workflow",
+    "desktop-automation",
+    "productivity"
+  ],
+  "author": "Akshat Shukla",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^40.8.0"
+  }
+}
