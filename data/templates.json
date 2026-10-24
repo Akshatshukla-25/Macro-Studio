@@ -1,0 +1,136 @@
+[
+  {
+    "id": "template-coding",
+    "name": "Start Coding",
+    "description": "Opens VS Code, launches dev browser at localhost:3000, runs npm dev server, and notifies when ready.",
+    "category": "Development",
+    "actions": [
+      {
+        "id": "act-1",
+        "type": "openApp",
+        "label": "Open Visual Studio Code",
+        "value": "Visual Studio Code"
+      },
+      {
+        "id": "act-2",
+        "type": "wait",
+        "label": "Wait 2 seconds",
+        "value": 2000
+      },
+      {
+        "id": "act-3",
+        "type": "openUrl",
+        "label": "Open Localhost",
+        "value": "http://localhost:3000"
+      },
+      {
+        "id": "act-4",
+        "type": "command",
+        "label": "Start Dev Server",
+        "value": "npm run dev"
+      },
+      {
+        "id": "act-5",
+        "type": "notification",
+        "label": "Notify Ready",
+        "value": "Development environment ready!"
+      }
+    ]
+  },
+  {
+    "id": "template-study",
+    "name": "Study & Research Session",
+    "description": "Prepares research workspace with browser tabs, notes app, and focus timer alert.",
+    "category": "Education",
+    "actions": [
+      {
+        "id": "act-1",
+        "type": "openUrl",
+        "label": "Open Research Portal",
+        "value": "https://scholar.google.com"
+      },
+      {
+        "id": "act-2",
+        "type": "wait",
+        "label": "Wait 1.5 seconds",
+        "value": 1500
+      },
+      {
+        "id": "act-3",
+        "type": "openApp",
+        "label": "Open Notes / Reader",
+        "value": "Notes"
+      },
+      {
+        "id": "act-4",
+        "type": "notification",
+        "label": "Focus Alert",
+        "value": "Focus session initialized. Good luck with your study!"
+      }
+    ]
+  },
+  {
+    "id": "template-gaming",
+    "name": "Gaming Setup",
+    "description": "Launches game client, communication hub, and audio player.",
+    "category": "Entertainment",
+    "actions": [
+      {
+        "id": "act-1",
+        "type": "openApp",
+        "label": "Open Discord",
+        "value": "Discord"
+      },
+      {
+        "id": "act-2",
+        "type": "wait",
+        "label": "Wait 2 seconds",
+        "value": 2000
+      },
+      {
+        "id": "act-3",
+        "type": "openApp",
+        "label": "Open Steam",
+        "value": "Steam"
+      },
+      {
+        "id": "act-4",
+        "type": "notification",
+        "label": "Game On",
+        "value": "Gaming setup complete! Have fun."
+      }
+    ]
+  },
+  {
+    "id": "template-daily-work",
+    "name": "Daily Work Setup",
+    "description": "Launches email, team communication, and project management dashboards.",
+    "category": "Productivity",
+    "actions": [
+      {
+        "id": "act-1",
+        "type": "openUrl",
+        "label": "Open Work Dashboard",
+        "value": "https://calendar.google.com"
+      },
+      {
+        "id": "act-2",
+        "type": "openUrl",
+        "label": "Open Project Board",
+        "value": "https://github.com"
+      },
+      {
+        "id": "act-3",
+        "type": "wait",
+        "label": "Wait 1 second",
+        "value": 1000
+      },
+      {
+        "id": "act-4",
+        "type": "notification",
+        "label": "Good Morning",
+        "value": "Morning workspace prepared. Have a productive day!"
+      }
+    ]
+  }
+]
