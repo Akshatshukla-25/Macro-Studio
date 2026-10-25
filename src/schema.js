@@ -1,7 +1,7 @@
 /**
- * @fileoverview Macro Studio Data Contract & Validation Engine.
- * Provides runtime sanitization, parameter boundary validation,
- * and security defenses against injection for desktop macro actions.
+ * @fileoverview Macro Studio Data Contract, Validation & Interpolation Engine.
+ * Provides runtime sanitization, parameter boundary validation, dynamic variable
+ * interpolation, and security defenses against injection for desktop macro actions.
  *
  * @author Akshat Shukla
  * @license MIT
@@ -20,7 +20,10 @@ const ACTION_TYPES = Object.freeze({
   COMMAND: 'command',
   WAIT: 'wait',
   NOTIFICATION: 'notification',
-  CLOSE_APP: 'closeApp'
+  CLOSE_APP: 'closeApp',
+  WAIT_FOR_URL: 'waitForUrl',
+  SPEAK: 'speak',
+  SNAP_WINDOW: 'snapWindow'
 });
 
 const TYPES = Object.freeze(Object.values(ACTION_TYPES));
@@ -33,6 +36,8 @@ const BOUNDS = Object.freeze({
   MAX_ACTIONS: 200,
   MAX_VALUE_LENGTH: 2048,
   MAX_CWD_LENGTH: 512,
+  MAX_HOTKEY_LENGTH: 64,
+  MAX_SCHEDULE_LENGTH: 10,
   MIN_WAIT_MS: 0,
   MAX_WAIT_MS: 3600 * 1000 // 1 hour max wait
 });
@@ -44,6 +49,11 @@ const INJECTION_PATTERNS = Object.freeze({
   APP_NAME: /["&|<>^%`$;\r\n]/,
   CLOSE_APP_NAME: /["&|<>^%`$;\\\r\n]/
 });
+
+/**
+ * Allowed window snapping positions.
+ */
+const ALLOWED_SNAP_POSITIONS = Object.freeze(new Set(['left', 'right', 'top', 'bottom', 'maximize']));
 
 /**
  * Valid protocol schemes allowed for URL actions.
@@ -60,13 +70,54 @@ function isValidId(id) {
 }
 
 /**
+ * Interpolates variables in a string template.
+ * Supported built-in variables:
+ * - {{DATE}}: Current date YYYY-MM-DD
+ * - {{TIME}}: Current time HH:MM:SS
+ * - {{USER}}: Current OS username
+ * - {{HOME}}: User home directory
+ * - {{env.VAR}}: OS environment variable
+ * - {{KEY}}: User-defined macro variables
+ *
+ * @param {string} template
+ * @param {Record<string, string>} [customVars={}]
+ * @returns {string}
+ */
+function interpolateVariables(template, customVars = {}) {
+  if (typeof template !== 'string' || !template.includes('{{')) {
+    return template;
+  }
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const timeStr = now.toTimeString().slice(0, 8);
+  const userStr = process.env.USER || process.env.USERNAME || 'user';
+  const homeStr = process.env.HOME || process.env.USERPROFILE || '';
+
+  return template.replace(/\{\{([\w.-]+)\}\}/g, (match, token) => {
+    if (token === 'DATE') return dateStr;
+    if (token === 'TIME') return timeStr;
+    if (token === 'USER') return userStr;
+    if (token === 'HOME') return homeStr;
+    if (token.startsWith('env.')) {
+      const envKey = token.slice(4);
+      return process.env[envKey] !== undefined ? process.env[envKey] : '';
+    }
+    if (customVars && Object.prototype.hasOwnProperty.call(customVars, token)) {
+      return String(customVars[token]);
+    }
+    return match; // preserve unrecognised tokens
+  });
+}
+
+/**
  * Sanitizes a raw macro object for safe persistence.
  * Permissive during draft editing (allows empty values), but strictly bounds lengths
  * and strips unwanted properties.
  *
  * @param {unknown} raw
  * @param {() => string} generateId Fallback identifier generator.
- * @returns {{ id: string, name: string, actions: Array<{ type: string, value: string|number, cwd?: string }> }}
+ * @returns {{ id: string, name: string, hotkey?: string, schedule?: string, variables?: Record<string, string>, actions: Array<any> }}
  * @throws {TypeError|RangeError} On fundamentally invalid structural input.
  */
 function sanitizeMacro(raw, generateId = () => `macro-${Date.now()}`) {
@@ -77,6 +128,26 @@ function sanitizeMacro(raw, generateId = () => `macro-${Date.now()}`) {
   const id = isValidId(raw.id) ? raw.id : generateId();
   const name = String(raw.name ?? '').trim().slice(0, BOUNDS.MAX_NAME_LENGTH) || 'Untitled macro';
 
+  const sanitizedMacro = { id, name };
+
+  if (raw.hotkey && typeof raw.hotkey === 'string') {
+    sanitizedMacro.hotkey = raw.hotkey.trim().slice(0, BOUNDS.MAX_HOTKEY_LENGTH);
+  }
+
+  if (raw.schedule && typeof raw.schedule === 'string') {
+    sanitizedMacro.schedule = raw.schedule.trim().slice(0, BOUNDS.MAX_SCHEDULE_LENGTH);
+  }
+
+  if (raw.variables && typeof raw.variables === 'object' && !Array.isArray(raw.variables)) {
+    const cleanVars = {};
+    for (const [k, v] of Object.entries(raw.variables)) {
+      if (/^[\w-]+$/.test(k)) {
+        cleanVars[k] = String(v ?? '').slice(0, 500);
+      }
+    }
+    sanitizedMacro.variables = cleanVars;
+  }
+
   if (!Array.isArray(raw.actions)) {
     throw new TypeError('Invalid macro: actions must be an array.');
   }
@@ -85,7 +156,7 @@ function sanitizeMacro(raw, generateId = () => `macro-${Date.now()}`) {
     throw new RangeError(`A macro cannot exceed ${BOUNDS.MAX_ACTIONS} actions.`);
   }
 
-  const actions = raw.actions.map((act, index) => {
+  sanitizedMacro.actions = raw.actions.map((act, index) => {
     if (!act || typeof act !== 'object') {
       throw new TypeError(`Action at index ${index} must be an object.`);
     }
@@ -111,17 +182,25 @@ function sanitizeMacro(raw, generateId = () => `macro-${Date.now()}`) {
       sanitized.cwd = String(act.cwd).slice(0, BOUNDS.MAX_CWD_LENGTH);
     }
 
+    if (act.type === ACTION_TYPES.SNAP_WINDOW && act.position) {
+      sanitized.position = ALLOWED_SNAP_POSITIONS.has(act.position) ? act.position : 'maximize';
+    }
+
+    if (act.type === ACTION_TYPES.WAIT_FOR_URL && act.timeout) {
+      sanitized.timeout = Math.min(60000, Math.max(1000, Number(act.timeout) || 15000));
+    }
+
     return sanitized;
   });
 
-  return { id, name, actions };
+  return sanitizedMacro;
 }
 
 /**
  * Validates a single action before execution.
  * Enforces strict values, valid protocols, and injection safety.
  *
- * @param {{ type: string, value: unknown, cwd?: unknown }} action
+ * @param {{ type: string, value: unknown, cwd?: unknown, position?: unknown, timeout?: unknown }} action
  * @throws {Error} Detailed explanation if action fails execution validation.
  */
 function validateAction(action) {
@@ -146,7 +225,7 @@ function validateAction(action) {
     throw new Error('This action step requires a non-empty value.');
   }
 
-  if (action.type === ACTION_TYPES.OPEN_URL) {
+  if (action.type === ACTION_TYPES.OPEN_URL || action.type === ACTION_TYPES.WAIT_FOR_URL) {
     let parsedUrl;
     try {
       parsedUrl = new URL(strValue);
@@ -159,7 +238,7 @@ function validateAction(action) {
     }
   }
 
-  if (action.type === ACTION_TYPES.OPEN_APP) {
+  if (action.type === ACTION_TYPES.OPEN_APP || action.type === ACTION_TYPES.SNAP_WINDOW) {
     if (INJECTION_PATTERNS.APP_NAME.test(strValue)) {
       throw new Error(`Application name contains illegal characters: ${strValue}`);
     }
@@ -204,7 +283,9 @@ module.exports = {
   ACTION_TYPES,
   TYPES,
   BOUNDS,
+  ALLOWED_SNAP_POSITIONS,
   isValidId,
+  interpolateVariables,
   sanitizeMacro,
   validateAction,
   validateAllActions

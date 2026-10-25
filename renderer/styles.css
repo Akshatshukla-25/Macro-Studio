@@ -1,7 +1,8 @@
 /**
  * @fileoverview Macro Studio Dark Obsidian Design System.
  * Microsoft Fluent & Google Material inspired dark theme with glassmorphism,
- * glowing step state indicators, and responsive two-pane workflow builder layout.
+ * glowing step state indicators, drag-and-drop workflow chain, settings strip,
+ * and responsive two-pane layout.
  *
  * @author Akshat Shukla
  * @license MIT
@@ -61,7 +62,7 @@ body {
   display: none !important;
 }
 
-button, input {
+button, input, select, textarea {
   font: inherit;
   color: inherit;
 }
@@ -93,7 +94,7 @@ button, input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 18px 14px;
+  padding: 18px 16px 12px;
 }
 
 .brand-title {
@@ -111,13 +112,19 @@ button, input {
   color: #fff;
 }
 
+.brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .btn-new {
   background: linear-gradient(135deg, #0284c7, #2563eb);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   padding: 5px 12px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
@@ -129,8 +136,14 @@ button, input {
   transform: translateY(-1px);
 }
 
+.sidebar-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+}
+
 .side-label {
-  padding: 8px 18px 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -138,10 +151,24 @@ button, input {
   color: var(--text-muted);
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent-cyan);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
 .macro-list {
   list-style: none;
   margin: 0;
-  padding: 6px 10px 16px;
+  padding: 4px 10px 12px;
   overflow-y: auto;
   flex: 1;
 }
@@ -189,6 +216,23 @@ button, input {
   border-radius: 4px;
 }
 
+.sidebar-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.status-indicator {
+  color: #10b981;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* Main Area */
 .main {
   display: flex;
@@ -201,7 +245,7 @@ button, input {
 .empty {
   margin: auto;
   text-align: center;
-  max-width: 360px;
+  max-width: 380px;
 }
 
 .empty p {
@@ -219,12 +263,21 @@ button, input {
 .bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 14px;
-  padding: 16px 28px;
+  padding: 14px 28px;
   background: rgba(14, 17, 24, 0.85);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-subtle);
   flex-wrap: wrap;
+}
+
+.bar-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 200px;
 }
 
 .name-input {
@@ -234,7 +287,7 @@ button, input {
   border: 1px solid transparent;
   background: transparent;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 5px 8px;
   min-width: 180px;
   flex: 1;
   transition: all 0.15s ease;
@@ -257,11 +310,13 @@ button, input {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .bar-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
 }
 
 .btn {
@@ -269,11 +324,16 @@ button, input {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
   border-radius: 6px;
-  padding: 7px 16px;
+  padding: 6px 14px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 .btn:hover:not(:disabled) {
@@ -318,10 +378,66 @@ button, input {
   box-shadow: 0 2px 10px rgba(244, 63, 94, 0.3);
 }
 
+/* Settings Strip: Hotkey, Schedule & Dynamic Variables */
+.settings-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 28px;
+  background: rgba(11, 13, 19, 0.6);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.setting-item label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.setting-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  width: 170px;
+}
+
+.setting-input:focus {
+  border-color: var(--accent-cyan);
+  outline: none;
+}
+
+.variables-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.variables-hint code {
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--accent-cyan);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
 /* Scrollable Workflow Workspace */
 .scroll {
   overflow-y: auto;
-  padding: 28px;
+  padding: 24px 28px;
   flex: 1;
 }
 
@@ -330,7 +446,7 @@ button, input {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-width: 760px;
+  max-width: 800px;
 }
 
 .step {
@@ -339,6 +455,16 @@ button, input {
   grid-template-columns: 42px 1fr;
   gap: 16px;
   padding-bottom: 20px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.step.dragging {
+  opacity: 0.35;
+  transform: scale(0.98);
+}
+
+.step.drag-over {
+  border-top: 2px solid var(--accent-cyan);
 }
 
 /* Vertical glowing rail connector */
@@ -436,6 +562,30 @@ button, input {
   margin-bottom: 10px;
 }
 
+.head-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.drag-handle:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
 .kind {
   font-weight: 600;
   font-size: 13.5px;
@@ -448,15 +598,15 @@ button, input {
 
 .ctrl {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .ctrl button {
   border: 1px solid transparent;
   background: transparent;
   border-radius: 5px;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   cursor: pointer;
   color: var(--text-muted);
   display: grid;
@@ -489,11 +639,11 @@ button, input {
 .field label {
   font-size: 12px;
   color: var(--text-muted);
-  width: 38px;
+  width: 48px;
   flex-shrink: 0;
 }
 
-.field input {
+.field input, .field select {
   width: 100%;
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
@@ -501,6 +651,10 @@ button, input {
   background: var(--bg-input);
   color: var(--text-primary);
   transition: all 0.15s ease;
+}
+
+.field select {
+  cursor: pointer;
 }
 
 .field input.mono {
@@ -512,13 +666,13 @@ button, input {
   width: 130px;
 }
 
-.field input:focus {
+.field input:focus, .field select:focus {
   border-color: var(--accent-cyan);
   outline: none;
   box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
 }
 
-.field input:disabled {
+.field input:disabled, .field select:disabled {
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-muted);
 }
@@ -548,20 +702,32 @@ button, input {
   font-size: 12.5px;
 }
 
-/* Add Action Bar */
+/* Add Action Section */
 .chain-empty {
   margin: 0 0 20px;
   font-size: 14px;
+}
+
+.add-section {
+  max-width: 800px;
+  margin-top: 10px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.add-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
 }
 
 .add-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  max-width: 760px;
-  margin-top: 8px;
-  padding-top: 20px;
-  border-top: 1px dashed var(--border-subtle);
 }
 
 .add-bar .btn {
@@ -576,7 +742,7 @@ button, input {
 
 /* Execution Log Stream */
 .log-title {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -588,10 +754,10 @@ button, input {
   list-style: none;
   margin: 0;
   padding: 12px 14px;
-  max-width: 760px;
+  max-width: 800px;
   font-family: var(--font-mono);
   font-size: 12px;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
   background: rgba(11, 13, 19, 0.85);
   border: 1px solid var(--border-subtle);
@@ -613,20 +779,19 @@ button, input {
   color: #fda4af;
 }
 
-/* Template Dialog Modal */
-.template-dialog {
+/* Dialog Modals (Templates & Import) */
+.custom-dialog {
   border: 1px solid var(--border-active);
-  background: var(--bg-card);
-  backdrop-filter: blur(24px);
+  background: #0f121a;
   color: var(--text-primary);
   border-radius: 12px;
   padding: 24px;
-  max-width: 620px;
+  max-width: 640px;
   width: 90%;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
 }
 
-.template-dialog::backdrop {
+.custom-dialog::backdrop {
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(4px);
 }
@@ -635,7 +800,7 @@ button, input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .dialog-header h2 {
@@ -693,10 +858,26 @@ button, input {
   font-weight: 500;
 }
 
+.import-textarea {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.import-textarea:focus {
+  border-color: var(--accent-cyan);
+  outline: none;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
@@ -718,7 +899,7 @@ button, input {
     grid-template-columns: 210px 1fr;
   }
   .scroll {
-    padding: 18px;
+    padding: 16px;
   }
 }
 

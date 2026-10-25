@@ -54,6 +54,26 @@ contextBridge.exposeInMainWorld('api', {
   stopMacro: () => ipcRenderer.send('macro:stop'),
 
   /**
+   * Exports a macro to a local JSON file.
+   * @param {string} [macroId]
+   * @returns {Promise<{ ok: boolean, filePath?: string, canceled?: boolean, error?: string }>}
+   */
+  exportMacro: (macroId) => ipcRenderer.invoke('macros:export', macroId),
+
+  /**
+   * Imports macros from a local JSON file via open dialog.
+   * @returns {Promise<{ ok: boolean, imported?: Array<any>, canceled?: boolean, error?: string }>}
+   */
+  importMacro: () => ipcRenderer.invoke('macros:import'),
+
+  /**
+   * Imports macros directly from a JSON string (e.g. clipboard).
+   * @param {string} jsonString
+   * @returns {Promise<{ ok: boolean, imported?: Array<any>, error?: string }>}
+   */
+  importJson: (jsonString) => ipcRenderer.invoke('macros:importJson', jsonString),
+
+  /**
    * Submits user recovery choice on a step error.
    * @param {'retry'|'skip'|'stop'} choice
    */
@@ -65,6 +85,14 @@ contextBridge.exposeInMainWorld('api', {
    */
   onStatus: (callback) => {
     ipcRenderer.on('macro:status', (_event, payload) => callback(payload));
+  },
+
+  /**
+   * Subscribes to macro execution started event (useful for hotkey/tray triggers).
+   * @param {(payload: { macroId: string }) => void} callback
+   */
+  onStarted: (callback) => {
+    ipcRenderer.on('macro:started', (_event, payload) => callback(payload));
   },
 
   /**

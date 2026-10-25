@@ -15,8 +15,28 @@
 | **Close Application** | `closeApp` | `appName` / process | macOS: `osascript` quit, Windows: `taskkill /IM`, Linux: `pkill -x` |
 | **Open URL** | `openUrl` | `url` (http/https) | Electron `shell.openExternal(url)` in default browser |
 | **Run Command** | `command` | `command`, `cwd` (opt) | Node `child_process.spawn` detached with dev-server grace period |
-| **Wait Duration** | `wait` | `durationMs` (0 - 3600s) | Precision async timer with instant `AbortSignal` cancellation |
+| **Pause Duration** | `wait` | `durationMs` (0 - 3600s) | Precision async timer with instant `AbortSignal` cancellation |
+| **Wait for Port/URL** | `waitForUrl` | `url`, `timeout` (s) | Active polling loop checking HTTP response before proceeding |
+| **Voice Announcement** | `speak` | `text` | Native OS text-to-speech engine (macOS `say` / Windows SAPI) |
+| **Snap Window** | `snapWindow` | `appName`, `position` | Snaps target app window (Left Half, Right Half, Maximize) |
 | **Show Notification**| `notification` | `message` | Electron native desktop `Notification` API |
+
+---
+
+## 🌟 Power Features
+
+1. **Native Drag & Drop Reordering**: Grab the `⠿` handle on any action card to reorder your workflow sequence visually.
+2. **Global Keyboard Hotkeys**: Bind any workflow to a system-wide hotkey (e.g. `CommandOrControl+Shift+C`) to trigger it instantly from anywhere.
+3. **System Tray Integration**: Macro Studio minimizes to the macOS menu bar / Windows system tray with a quick-run popup menu for all macros.
+4. **Daily Scheduled Triggers**: Configure a daily execution time (`HH:MM`, e.g. `09:00`) to automate morning work and focus routines.
+5. **Dynamic Variables & Environment Interpolation**: Embed dynamic variables in commands, URLs, and speech text:
+   - `{{DATE}}` — Current ISO date (`YYYY-MM-DD`)
+   - `{{TIME}}` — Current local time (`HH:MM:SS`)
+   - `{{USER}}` — Logged-in OS username
+   - `{{HOME}}` — User home directory path
+   - `{{env.VARIABLE}}` — Any operating system environment variable
+6. **Workflow Import & Export**: Export single or all macros to `.json` files, or paste JSON snippets to share recipes with teammates.
+7. **Starter Workflow Templates**: One-click setup for *Start Coding*, *Study & Research*, *Gaming Setup*, and *Daily Work Setup*.
 
 ---
 
@@ -40,19 +60,19 @@ macro-studio/
 ├── data/
 │   └── templates.json          # Starter templates (Coding, Study, Gaming, Daily Work)
 ├── src/
-│   ├── schema.js               # Data contract validation & injection defense engine
-│   ├── storage.js              # Crash-resilient atomic JSON persistence layer
-│   └── macroEngine.js          # Sequential execution state machine & OS orchestrator
+│   ├── schema.js               # Validation rules, variable interpolation & injection defense
+│   ├── storage.js              # Crash-resilient atomic JSON persistence & import/export
+│   └── macroEngine.js          # Action execution orchestrator (process, TTS, window snapping, polling)
 ├── renderer/
 │   ├── index.html              # Modern desktop UI shell & accessibility landmarks
 │   ├── styles.css              # Obsidian glassmorphic design system (#07080b)
-│   └── renderer.js             # Action chain builder, step reordering & live telemetry
+│   └── renderer.js             # Drag-and-drop action chain, settings strip & telemetry
 ├── test/
 │   ├── schema.test.js          # Unit tests for parameter boundaries & sanitization
-│   ├── storage.test.js         # Integration tests for atomic disk persistence
+│   ├── storage.test.js         # Integration tests for atomic disk persistence & import/export
 │   ├── macroEngine.test.js     # Tests for cancellation, heuristics & error recovery
 │   └── run-tests.js            # Automated test suite aggregator
-├── main.js                     # Electron main process & authenticated IPC router
+├── main.js                     # Electron main process, tray menu, global shortcuts & IPC
 ├── preload.js                  # Sandboxed ContextBridge API exposure
 ├── package.json                # Project dependencies, build scripts & packaging configuration
 └── .editorconfig               # Workspace formatting standards
@@ -87,7 +107,7 @@ npm run dev
 
 ### Running Automated Test Suite
 ```bash
-# Run schema, storage atomicity, and engine executor tests
+# Run schema, storage atomicity, import/export, and engine executor tests
 npm test
 ```
 

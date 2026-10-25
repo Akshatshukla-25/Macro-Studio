@@ -1,13 +1,17 @@
 /**
  * @fileoverview Macro Studio Automation Engine & Process Orchestrator.
  * Executes automation actions sequentially, managing child processes,
- * external browser URLs, desktop notifications, and sleep timers.
+ * external browser URLs, desktop notifications, speech synthesis, window placement,
+ * and smart service polling.
  *
  * Designed with Google / Microsoft production standards:
  * - Graceful process lifecycle management for dev servers and long-running daemons.
+ * - Dynamic variable template interpolation before execution.
+ * - Smart service health-check polling (`waitForUrl`).
+ * - Native speech announcements (`speak`).
+ * - Window layout snapping (`snapWindow`).
  * - Platform-specific OS abstractions (macOS, Windows, Linux).
- * - Full AbortSignal cancellation support.
- * - Interactive step failure recovery (retry / skip / stop).
+ * - Full AbortSignal cancellation support and interactive failure recovery.
  *
  * @author Akshat Shukla
  * @license MIT
@@ -17,7 +21,7 @@
 
 const { spawn, execFile } = require('child_process');
 const { shell, Notification } = require('electron');
-const { validateAction, ACTION_TYPES } = require('./schema');
+const { validateAction, interpolateVariables, ACTION_TYPES } = require('./schema');
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
@@ -55,14 +59,6 @@ function isDangerous(cmd) {
 
 /**
  * Spawns an external command or process with a grace period.
- *
- * Resolves if:
- * 1. Process terminates quickly with exit code 0.
- * 2. Process is still executing after `graceMs` (essential for background dev servers like `npm run dev`).
- *
- * Rejects if:
- * 1. Process fails to spawn (ENOENT).
- * 2. Process exits with non-zero code before grace period expires.
  *
  * @param {string} cmd Executable or shell command.
  * @param {string[]} args Command-line arguments.
@@ -115,7 +111,6 @@ function startProcess(cmd, args, opts, graceMs = 1500) {
       }
     });
 
-    // Grace timer: if process remains alive past grace window, assume success (e.g. dev server)
     const timer = setTimeout(() => {
       if (!settled) {
         finalize(resolve);
@@ -124,7 +119,6 @@ function startProcess(cmd, args, opts, graceMs = 1500) {
       }
     }, graceMs);
 
-    // Prevent grace timer from hanging the node event loop
     if (timer.unref) timer.unref();
   });
 }
@@ -203,7 +197,6 @@ const executors = {
       return startProcess('open', ['-a', appName], {}, 3000);
     }
 
-    // Linux: attempt direct execution or xdg-open fallback
     return startProcess(appName, [], {}, 1500);
   },
 
@@ -265,8 +258,103 @@ const executors = {
       return runSystemUtility('osascript', ['-e', `tell application "${name}" to quit`]);
     }
 
-    // Linux
     return runSystemUtility('pkill', ['-x', name]);
+  },
+
+  /**
+   * Smart polling: pauses execution until a target URL or port responds with HTTP status.
+   */
+  async waitForUrl(action, context) {
+    const targetUrl = new URL(String(action.value).trim()).toString();
+    const timeoutMs = Number(action.timeout) || 15000;
+    const intervalMs = 600;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (context && context.signal && context.signal.aborted) {
+        throw new Error('Macro execution aborted by user.');
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const resp = await fetch(targetUrl, { method: 'GET', signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (resp.status < 500) {
+          return; // Service is ready!
+        }
+      } catch {
+        // Not ready yet, retry after interval
+      }
+
+      await sleep(intervalMs, context ? context.signal : undefined);
+    }
+
+    throw new Error(`Timed out waiting for service at "${targetUrl}" after ${timeoutMs / 1000}s.`);
+  },
+
+  /**
+   * Spoken audio announcement via OS speech synthesis.
+   */
+  async speak(action) {
+    const text = String(action.value).trim();
+    if (!text) return;
+
+    if (isMac) {
+      return runSystemUtility('say', [text]);
+    }
+
+    if (isWin) {
+      const sanitized = text.replace(/"/g, '`"');
+      return startProcess(
+        'powershell.exe',
+        ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak("${sanitized}")`],
+        { windowsHide: true },
+        3000
+      );
+    }
+
+    return runSystemUtility('spd-say', [text]).catch(() => runSystemUtility('espeak', [text]));
+  },
+
+  /**
+   * Snaps an application window to a screen quadrant (left, right, maximize).
+   */
+  async snapWindow(action) {
+    const appName = String(action.value).trim();
+    const position = action.position || 'maximize';
+
+    if (isMac) {
+      const script = `
+        tell application "Finder"
+          set screenBounds to bounds of window of desktop
+          set screenW to item 3 of screenBounds
+          set screenH to item 4 of screenBounds
+        end tell
+        tell application "System Events"
+          try
+            tell process "${appName}"
+              set frontmost to true
+              if (count of windows) > 0 then
+                if "${position}" is "left" then
+                  set position of window 1 to {0, 25}
+                  set size of window 1 to {screenW / 2, screenH - 25}
+                else if "${position}" is "right" then
+                  set position of window 1 to {screenW / 2, 25}
+                  set size of window 1 to {screenW / 2, screenH - 25}
+                else
+                  set position of window 1 to {0, 25}
+                  set size of window 1 to {screenW, screenH - 25}
+                end if
+              end if
+            end tell
+          end try
+        end tell
+      `;
+      return runSystemUtility('osascript', ['-e', script]).catch(() => {});
+    }
+
+    // Windows / Linux: graceful no-op fallback
   }
 };
 
@@ -277,7 +365,7 @@ const executors = {
  * - 'skip': marks step as skipped and continues to next
  * - 'stop': aborts macro execution immediately
  *
- * @param {{ id: string, name: string, actions: Array<any> }} macro
+ * @param {{ id: string, name: string, variables?: Record<string, string>, actions: Array<any> }} macro
  * @param {{
  *   signal: AbortSignal,
  *   onStatus: (stepIndex: number, status: 'running'|'done'|'error'|'skipped', message?: string) => void,
@@ -287,9 +375,21 @@ const executors = {
  */
 async function runMacro(macro, hooks) {
   const { signal, onStatus, decide } = hooks;
+  const customVariables = macro.variables || {};
 
   for (let i = 0; i < macro.actions.length; i++) {
-    const action = macro.actions[i];
+    const rawAction = macro.actions[i];
+
+    // Dynamically interpolate variables before executing
+    const action = {
+      ...rawAction,
+      value: typeof rawAction.value === 'string'
+        ? interpolateVariables(rawAction.value, customVariables)
+        : rawAction.value,
+      cwd: typeof rawAction.cwd === 'string'
+        ? interpolateVariables(rawAction.cwd, customVariables)
+        : rawAction.cwd
+    };
 
     for (;;) {
       if (signal.aborted) {

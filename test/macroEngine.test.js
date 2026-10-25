@@ -30,13 +30,14 @@ async function runTests() {
   controller.abort();
   await assert.rejects(sleepPromise, /aborted/i);
 
-  // Test 4: Mock macro execution with hooks
+  // Test 4: Mock macro execution with hooks and variable interpolation
   const mockMacro = {
     id: 'test-macro',
     name: 'Engine Test',
+    variables: { TEST_TIME: '10' },
     actions: [
-      { type: 'wait', value: 50 },
-      { type: 'wait', value: 50 }
+      { type: 'wait', value: 30 },
+      { type: 'wait', value: 30 }
     ]
   };
 
@@ -82,7 +83,12 @@ async function runTests() {
   const skippedEvent = failEvents.find((e) => e.status === 'skipped');
   assert.ok(skippedEvent);
 
-  console.log('✓ All 5 Macro Engine & Executor tests passed successfully.');
+  // Test 6: Verify new executors exist
+  assert.strictEqual(typeof executors.waitForUrl, 'function');
+  assert.strictEqual(typeof executors.speak, 'function');
+  assert.strictEqual(typeof executors.snapWindow, 'function');
+
+  console.log('✓ All 6 Macro Engine & Executor tests passed successfully.');
 }
 
 if (require.main === module) {

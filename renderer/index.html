@@ -19,75 +19,139 @@
           </svg>
           <h1>Macro Studio</h1>
         </div>
-        <div style="display: flex; gap: 6px;">
-          <button id="btn-templates" class="btn" style="padding: 5px 9px; font-size: 12px;" title="Starter templates">Templates</button>
+        <div class="brand-actions">
+          <button id="btn-templates" class="btn btn-sm" title="Explore starter templates">Templates</button>
           <button id="btn-new" class="btn-new" title="Create a new workflow">+ New</button>
         </div>
       </div>
 
-      <div class="side-label">My Workflows</div>
+      <div class="sidebar-subhead">
+        <span class="side-label">My Workflows</span>
+        <button id="btn-import-open" class="btn-link" title="Import workflow JSON">Import</button>
+      </div>
+
       <ul id="macro-list" class="macro-list" role="listbox" aria-label="Saved macros"></ul>
+
+      <div class="sidebar-footer">
+        <span class="version-tag">Macro Studio v1.2</span>
+        <span class="status-indicator">Tray Active • Ready</span>
+      </div>
     </aside>
 
     <!-- Main Workspace Area -->
     <main class="main">
       <div id="empty" class="empty" hidden>
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 12px;">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 14px;">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
           <line x1="12" y1="8" x2="12" y2="16"></line>
           <line x1="8" y1="12" x2="16" y2="12"></line>
         </svg>
-        <p style="font-size: 16px; font-weight: 600; color: #f1f5f9;">No workflow selected</p>
-        <p class="muted" style="font-size: 13px;">Select an existing macro or click <strong>+ New</strong> to build a sequence.</p>
+        <p style="font-size: 17px; font-weight: 600; color: #f1f5f9;">No workflow selected</p>
+        <p class="muted" style="font-size: 13px;">Select an existing macro from the sidebar or click <strong>+ New</strong> to start.</p>
       </div>
 
       <section id="editor" class="editor" hidden aria-label="Workflow Editor">
+        <!-- Top Toolbar -->
         <header class="bar">
-          <input
-            id="macro-name"
-            class="name-input"
-            type="text"
-            maxlength="80"
-            placeholder="Workflow Name"
-            aria-label="Workflow Name"
-            spellcheck="false"
-          >
-          <span id="dirty" class="dirty" hidden>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="10"></circle>
-            </svg>
-            Unsaved changes
-          </span>
+          <div class="bar-title-wrap">
+            <input
+              id="macro-name"
+              class="name-input"
+              type="text"
+              maxlength="80"
+              placeholder="Workflow Name"
+              aria-label="Workflow Name"
+              spellcheck="false"
+            >
+            <span id="dirty" class="dirty" hidden>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+              Unsaved changes
+            </span>
+          </div>
+
           <div class="bar-actions">
-            <button id="btn-save" class="btn" title="Save macro to local storage">Save</button>
+            <button id="btn-export" class="btn" title="Export this macro as JSON file">Export</button>
+            <button id="btn-save" class="btn" title="Save macro (Cmd/Ctrl + S)">Save</button>
             <button id="btn-delete" class="btn btn-quiet" title="Delete current macro">Delete</button>
-            <button id="btn-run" class="btn btn-run" title="Execute this automation sequence">▶ Run Macro</button>
-            <button id="btn-stop" class="btn btn-stop" hidden title="Abort running sequence">■ Stop</button>
+            <button id="btn-run" class="btn btn-run" title="Execute this automation sequence (Cmd/Ctrl + Enter)">▶ Run Macro</button>
+            <button id="btn-stop" class="btn btn-stop" hidden title="Abort running sequence (Esc)">■ Stop</button>
           </div>
         </header>
 
+        <!-- Macro Configuration Pill Row (Hotkey & Schedule Triggers) -->
+        <div class="settings-strip">
+          <div class="setting-item">
+            <label for="macro-hotkey">Global Hotkey</label>
+            <input id="macro-hotkey" class="setting-input mono" type="text" placeholder="e.g. CommandOrControl+Shift+C" title="Global hotkey to trigger macro from anywhere">
+          </div>
+          <div class="setting-item">
+            <label for="macro-schedule">Daily Schedule</label>
+            <input id="macro-schedule" class="setting-input mono" type="text" placeholder="e.g. 09:00" maxlength="5" title="Run automatically every day at HH:MM">
+          </div>
+          <div class="variables-hint" title="Use {{DATE}}, {{TIME}}, {{USER}}, {{HOME}}, or {{env.VAR}} in any step value">
+            <span>Dynamic Variables:</span>
+            <code>{{DATE}}</code>
+            <code>{{TIME}}</code>
+            <code>{{USER}}</code>
+            <code>{{HOME}}</code>
+          </div>
+        </div>
+
         <div class="scroll">
           <ol id="chain" class="chain" aria-label="Action sequence chain"></ol>
-          <p id="chain-empty" class="muted chain-empty" hidden>This workflow has no actions yet. Add one using the bar below.</p>
+          <p id="chain-empty" class="muted chain-empty" hidden>This workflow has no actions yet. Add an action below.</p>
 
-          <div class="add-bar" id="add-bar" role="group" aria-label="Add action"></div>
+          <div class="add-section">
+            <div class="add-label">Add Action to Workflow</div>
+            <div class="add-bar" id="add-bar" role="group" aria-label="Add action buttons"></div>
+          </div>
 
-          <h2 class="log-title">Execution Terminal Log</h2>
+          <h2 class="log-title">Execution Terminal Stream</h2>
           <ul id="log" class="log" aria-live="polite" aria-label="Execution log stream"></ul>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- Template Picker Modal -->
-  <dialog id="template-dialog" class="template-dialog" aria-labelledby="dialog-title">
+  <!-- Starter Templates Modal -->
+  <dialog id="template-dialog" class="custom-dialog" aria-labelledby="dialog-title">
     <div class="dialog-content">
       <div class="dialog-header">
         <h2 id="dialog-title">Starter Automation Templates</h2>
         <button id="btn-close-dialog" class="btn btn-quiet" aria-label="Close dialog">✕</button>
       </div>
-      <p class="muted" style="margin: 0 0 16px; font-size: 13px;">Choose a pre-built workflow to customize and run immediately.</p>
+      <p class="muted" style="margin: 0 0 16px; font-size: 13px;">Select a battle-tested automation recipe to customize and run immediately.</p>
       <div id="template-list" class="template-grid"></div>
+    </div>
+  </dialog>
+
+  <!-- Import Modal Dialog -->
+  <dialog id="import-dialog" class="custom-dialog" aria-labelledby="import-title">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h2 id="import-title">Import Workflow</h2>
+        <button id="btn-close-import" class="btn btn-quiet" aria-label="Close dialog">✕</button>
+      </div>
+      <p class="muted" style="margin: 0 0 14px; font-size: 13px;">Choose a <code>.json</code> file or paste a JSON workflow snippet below.</p>
+      
+      <div style="margin-bottom: 16px;">
+        <button id="btn-import-file" class="btn" style="width: 100%; padding: 10px; font-weight: 600;">📁 Choose JSON File From Computer</button>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+        <span style="height: 1px; flex: 1; background: var(--border-subtle);"></span>
+        <span class="muted" style="font-size: 11px; text-transform: uppercase;">or paste snippet</span>
+        <span style="height: 1px; flex: 1; background: var(--border-subtle);"></span>
+      </div>
+
+      <textarea id="import-paste-area" class="import-textarea mono" rows="6" placeholder='Paste macro JSON snippet here...'></textarea>
+      
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+        <button id="btn-cancel-import" class="btn btn-quiet">Cancel</button>
+        <button id="btn-submit-import" class="btn btn-run">Import Snippet</button>
+      </div>
     </div>
   </dialog>
 

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Macro Studio Renderer Controller & Workflow Builder.
- * Manages reactive UI rendering, the visual action signal chain, step reordering,
- * dirty state tracking, and live execution telemetry.
+ * Manages reactive UI rendering, drag-and-drop action chains, global hotkey and
+ * schedule settings, JSON export/import, and live execution telemetry.
  *
  * @author Akshat Shukla
  * @license MIT
@@ -16,7 +16,7 @@ const ACTION_DEFINITIONS = Object.freeze({
   openApp: {
     label: 'Open Application',
     icon: '🖥️',
-    placeholder: 'e.g. Visual Studio Code, Slack, Chrome',
+    placeholder: 'e.g. Visual Studio Code, Chrome, Slack',
     help: 'Application executable or bundle name'
   },
   openUrl: {
@@ -36,6 +36,24 @@ const ACTION_DEFINITIONS = Object.freeze({
     icon: '⏱️',
     placeholder: '2',
     help: 'Seconds to wait before proceeding'
+  },
+  waitForUrl: {
+    label: 'Wait for Port / URL Ready',
+    icon: '⏳',
+    placeholder: 'http://localhost:3000',
+    help: 'Polls until HTTP service responds'
+  },
+  speak: {
+    label: 'Voice Announcement',
+    icon: '🗣️',
+    placeholder: 'Development workspace is ready!',
+    help: 'Announces text using native speech synthesis'
+  },
+  snapWindow: {
+    label: 'Snap Window Layout',
+    icon: '🪟',
+    placeholder: 'e.g. Google Chrome, Visual Studio Code',
+    help: 'Places application window in a screen quadrant'
   },
   notification: {
     label: 'Show Notification',
@@ -113,7 +131,8 @@ function renderSidebar() {
     const button = createElement('button', `macro-item${isActive ? ' active' : ''}`);
 
     const titleSpan = createElement('span', 'title', macro.name);
-    const countBadge = createElement('small', '', `${macro.actions.length} ${macro.actions.length === 1 ? 'step' : 'steps'}`);
+    const badgeText = macro.hotkey ? `${macro.actions.length} • ⌨ ${macro.hotkey}` : `${macro.actions.length} ${macro.actions.length === 1 ? 'step' : 'steps'}`;
+    const countBadge = createElement('small', '', badgeText);
 
     button.append(titleSpan, countBadge);
     button.addEventListener('click', () => selectMacro(macro.id));
@@ -148,6 +167,8 @@ function createNewMacro() {
   activeMacro = {
     id: generateId(),
     name: 'Untitled Workflow',
+    hotkey: '',
+    schedule: '',
     actions: []
   };
 
@@ -173,9 +194,15 @@ function renderView() {
   renderSidebar();
   if (!hasSelection) return;
 
-  $('#macro-name').value = activeMacro.name;
+  $('#macro-name').value = activeMacro.name || '';
   $('#macro-name').disabled = isExecuting;
+  $('#macro-hotkey').value = activeMacro.hotkey || '';
+  $('#macro-hotkey').disabled = isExecuting;
+  $('#macro-schedule').value = activeMacro.schedule || '';
+  $('#macro-schedule').disabled = isExecuting;
+
   $('#btn-save').disabled = isExecuting;
+  $('#btn-export').disabled = isExecuting;
   $('#btn-delete').disabled = isExecuting;
   $('#btn-run').hidden = isExecuting;
   $('#btn-stop').hidden = !isExecuting;
@@ -198,6 +225,36 @@ function renderActionChain() {
 
     const li = createElement('li', `step ${stepState.status}`);
 
+    // Native Drag and Drop Reordering
+    li.setAttribute('draggable', !isExecuting);
+    li.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', String(index));
+      li.classList.add('dragging');
+    });
+
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+      document.querySelectorAll('.step').forEach((s) => s.classList.remove('drag-over'));
+    });
+
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      li.classList.add('drag-over');
+    });
+
+    li.addEventListener('dragleave', () => {
+      li.classList.remove('drag-over');
+    });
+
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      li.classList.remove('drag-over');
+      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (!isNaN(fromIndex) && fromIndex !== index) {
+        reorderStep(fromIndex, index);
+      }
+    });
+
     // Status node pill with icon
     const node = createElement('span', 'node', spec.icon);
     li.appendChild(node);
@@ -207,7 +264,14 @@ function renderActionChain() {
 
     // Card header
     const head = createElement('div', 'card-head');
-    head.appendChild(createElement('span', 'kind', `${index + 1}. ${spec.label}`));
+    const headTitle = createElement('div', 'head-title');
+
+    const dragHandle = createElement('span', 'drag-handle', '⠿');
+    dragHandle.title = 'Drag to reorder step';
+    const kindLabel = createElement('span', 'kind', `${index + 1}. ${spec.label}`);
+
+    headTitle.append(dragHandle, kindLabel);
+    head.appendChild(headTitle);
 
     // Controls (Move Up, Move Down, Delete)
     const ctrl = createElement('div', 'ctrl');
@@ -251,7 +315,9 @@ function renderActionChain() {
       input.type = 'text';
       input.placeholder = spec.placeholder;
       input.value = String(action.value || '');
-      if (action.type === 'command') input.className = 'mono';
+      if (['command', 'openUrl', 'waitForUrl'].includes(action.type)) {
+        input.className = 'mono';
+      }
       input.addEventListener('input', () => {
         action.value = input.value;
         setDirty(true);
@@ -260,22 +326,71 @@ function renderActionChain() {
     }
     card.appendChild(primaryField);
 
-    // Secondary working directory field for commands
+    // Secondary field for command working directory
     if (action.type === 'command') {
       const cwdField = createElement('div', 'field');
+      const cwdLabel = createElement('label', '', 'Folder');
       const cwdInput = document.createElement('input');
       cwdInput.type = 'text';
       cwdInput.className = 'mono';
       cwdInput.placeholder = 'Working directory path (optional)';
       cwdInput.value = action.cwd || '';
       cwdInput.disabled = isExecuting;
-      cwdInput.setAttribute('aria-label', 'Working directory');
       cwdInput.addEventListener('input', () => {
         action.cwd = cwdInput.value;
         setDirty(true);
       });
-      cwdField.appendChild(cwdInput);
+      cwdField.append(cwdLabel, cwdInput);
       card.appendChild(cwdField);
+    }
+
+    // Secondary field for waitForUrl timeout
+    if (action.type === 'waitForUrl') {
+      const timeoutField = createElement('div', 'field');
+      const timeoutLabel = createElement('label', '', 'Timeout');
+      const timeoutInput = document.createElement('input');
+      timeoutInput.type = 'number';
+      timeoutInput.className = 'num';
+      timeoutInput.min = '1';
+      timeoutInput.max = '60';
+      timeoutInput.value = String(Math.round((action.timeout || 15000) / 1000));
+      timeoutInput.disabled = isExecuting;
+      timeoutInput.addEventListener('input', () => {
+        action.timeout = (parseInt(timeoutInput.value, 10) || 15) * 1000;
+        setDirty(true);
+      });
+      timeoutField.append(timeoutLabel, timeoutInput, createElement('span', 'muted', 'seconds'));
+      card.appendChild(timeoutField);
+    }
+
+    // Secondary field for snapWindow quadrant selector
+    if (action.type === 'snapWindow') {
+      const snapField = createElement('div', 'field');
+      const snapLabel = createElement('label', '', 'Position');
+      const snapSelect = document.createElement('select');
+      snapSelect.disabled = isExecuting;
+
+      const options = [
+        ['maximize', 'Full Screen (Maximize)'],
+        ['left', 'Left Half Screen'],
+        ['right', 'Right Half Screen']
+      ];
+
+      options.forEach(([val, label]) => {
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = label;
+        if (action.position === val) opt.selected = true;
+        snapSelect.appendChild(opt);
+      });
+
+      snapSelect.addEventListener('change', () => {
+        action.position = snapSelect.value;
+        setDirty(true);
+      });
+
+      snapField.append(snapLabel, snapSelect);
+      card.appendChild(snapField);
     }
 
     // Step error message & interactive recovery controls
@@ -310,7 +425,18 @@ function renderActionChain() {
 
 function addStep(type) {
   if (isExecuting || !activeMacro) return;
-  activeMacro.actions.push(type === 'wait' ? { type, value: 2000 } : { type, value: '' });
+
+  const defaultStep = { type, value: '' };
+  if (type === 'wait') defaultStep.value = 2000;
+  if (type === 'waitForUrl') {
+    defaultStep.value = 'http://localhost:3000';
+    defaultStep.timeout = 15000;
+  }
+  if (type === 'snapWindow') {
+    defaultStep.position = 'maximize';
+  }
+
+  activeMacro.actions.push(defaultStep);
   setDirty(true);
   renderView();
 
@@ -331,6 +457,15 @@ function moveStep(currentIndex, direction) {
   renderView();
 }
 
+function reorderStep(fromIndex, toIndex) {
+  if (fromIndex === toIndex || !activeMacro) return;
+  const [moved] = activeMacro.actions.splice(fromIndex, 1);
+  activeMacro.actions.splice(toIndex, 0, moved);
+
+  setDirty(true);
+  renderView();
+}
+
 function removeStep(index) {
   if (isExecuting || !activeMacro) return;
   activeMacro.actions.splice(index, 1);
@@ -345,6 +480,8 @@ function removeStep(index) {
 async function saveMacro() {
   if (!activeMacro) return false;
   activeMacro.name = $('#macro-name').value.trim() || 'Untitled Workflow';
+  activeMacro.hotkey = $('#macro-hotkey').value.trim();
+  activeMacro.schedule = $('#macro-schedule').value.trim();
 
   const res = await window.api.saveMacro(clone(activeMacro));
   if (!res.ok) {
@@ -386,6 +523,16 @@ async function deleteMacro() {
   renderView();
 }
 
+async function exportCurrentMacro() {
+  if (!activeMacro) return;
+  const res = await window.api.exportMacro(activeMacro.id);
+  if (res.ok && res.filePath) {
+    appendLog(`Exported workflow to: ${res.filePath}`, 'ok');
+  } else if (res.error) {
+    appendLog(`Export failed: ${res.error}`, 'err');
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /*                            Execution Orchestration                         */
 /* -------------------------------------------------------------------------- */
@@ -422,6 +569,22 @@ async function runCurrentMacro() {
 /* -------------------------------------------------------------------------- */
 /*                             IPC Event Listeners                            */
 /* -------------------------------------------------------------------------- */
+
+window.api.onStarted(({ macroId }) => {
+  if (activeMacro && activeMacro.id === macroId) {
+    isExecuting = true;
+    stepStatuses = [];
+    renderView();
+  } else {
+    const target = macroList.find((m) => m.id === macroId);
+    if (target) {
+      activeMacro = clone(target);
+      isExecuting = true;
+      stepStatuses = [];
+      renderView();
+    }
+  }
+});
 
 window.api.onStatus((payload) => {
   const index = payload.stepIndex !== undefined ? payload.stepIndex : payload.index;
@@ -485,7 +648,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 /* -------------------------------------------------------------------------- */
-/*                               Initialization                               */
+/*                               Modals & Dialogs                             */
 /* -------------------------------------------------------------------------- */
 
 async function openTemplateModal() {
@@ -525,6 +688,8 @@ function loadTemplateAsNew(tmpl) {
   activeMacro = {
     id: generateId(),
     name: tmpl.name,
+    hotkey: '',
+    schedule: '',
     actions: clone(tmpl.actions)
   };
 
@@ -532,13 +697,53 @@ function loadTemplateAsNew(tmpl) {
   awaitingDecisionStep = -1;
   setDirty(true);
   renderView();
-  appendLog(`Loaded template "${tmpl.name}". Review steps and click Save.`, 'info');
+  appendLog(`Loaded template "${tmpl.name}". Click Save to persist.`, 'info');
 }
+
+function openImportDialog() {
+  $('#import-paste-area').value = '';
+  $('#import-dialog').showModal();
+}
+
+async function handleFileImport() {
+  $('#import-dialog').close();
+  const res = await window.api.importMacro();
+  if (res.ok && res.imported && res.imported.length > 0) {
+    const freshList = await window.api.listMacros();
+    macroList = freshList.ok ? freshList.macros : [];
+    activeMacro = clone(res.imported[0]);
+    renderView();
+    appendLog(`Imported ${res.imported.length} workflow(s) successfully.`, 'ok');
+  } else if (res.error) {
+    appendLog(`Import failed: ${res.error}`, 'err');
+  }
+}
+
+async function handleSnippetImport() {
+  const snippet = $('#import-paste-area').value.trim();
+  if (!snippet) return;
+
+  $('#import-dialog').close();
+  const res = await window.api.importJson(snippet);
+  if (res.ok && res.imported && res.imported.length > 0) {
+    const freshList = await window.api.listMacros();
+    macroList = freshList.ok ? freshList.macros : [];
+    activeMacro = clone(res.imported[0]);
+    renderView();
+    appendLog(`Imported workflow "${res.imported[0].name}" from snippet.`, 'ok');
+  } else {
+    appendLog(`Import snippet failed: ${res.error || 'Invalid format'}`, 'err');
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Initialization                               */
+/* -------------------------------------------------------------------------- */
 
 function initializeApp() {
   const addBar = $('#add-bar');
   Object.entries(ACTION_DEFINITIONS).forEach(([type, spec]) => {
-    const btn = createElement('button', 'btn', `${spec.icon} ${spec.label}`);
+    const btn = createElement('button', 'btn btn-sm', `${spec.icon} ${spec.label}`);
     btn.type = 'button';
     btn.addEventListener('click', () => addStep(type));
     addBar.appendChild(btn);
@@ -547,7 +752,15 @@ function initializeApp() {
   $('#btn-new').addEventListener('click', createNewMacro);
   $('#btn-templates').addEventListener('click', openTemplateModal);
   $('#btn-close-dialog').addEventListener('click', () => $('#template-dialog').close());
+
+  $('#btn-import-open').addEventListener('click', openImportDialog);
+  $('#btn-close-import').addEventListener('click', () => $('#import-dialog').close());
+  $('#btn-cancel-import').addEventListener('click', () => $('#import-dialog').close());
+  $('#btn-import-file').addEventListener('click', handleFileImport);
+  $('#btn-submit-import').addEventListener('click', handleSnippetImport);
+
   $('#btn-save').addEventListener('click', saveMacro);
+  $('#btn-export').addEventListener('click', exportCurrentMacro);
   $('#btn-delete').addEventListener('click', deleteMacro);
   $('#btn-run').addEventListener('click', runCurrentMacro);
   $('#btn-stop').addEventListener('click', () => window.api.stopMacro());
@@ -555,6 +768,20 @@ function initializeApp() {
   $('#macro-name').addEventListener('input', (event) => {
     if (activeMacro) {
       activeMacro.name = event.target.value;
+      setDirty(true);
+    }
+  });
+
+  $('#macro-hotkey').addEventListener('input', (event) => {
+    if (activeMacro) {
+      activeMacro.hotkey = event.target.value;
+      setDirty(true);
+    }
+  });
+
+  $('#macro-schedule').addEventListener('input', (event) => {
+    if (activeMacro) {
+      activeMacro.schedule = event.target.value;
       setDirty(true);
     }
   });

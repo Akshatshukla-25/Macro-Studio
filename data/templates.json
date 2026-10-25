@@ -2,7 +2,7 @@
   {
     "id": "template-coding",
     "name": "Start Coding",
-    "description": "Opens VS Code, launches dev browser at localhost:3000, runs npm dev server, and notifies when ready.",
+    "description": "Opens VS Code, launches dev server, waits until localhost:3000 is ready, opens browser, and speaks announcement.",
     "category": "Development",
     "actions": [
       {
@@ -13,34 +13,42 @@
       },
       {
         "id": "act-2",
-        "type": "wait",
-        "label": "Wait 2 seconds",
-        "value": 2000
-      },
-      {
-        "id": "act-3",
-        "type": "openUrl",
-        "label": "Open Localhost",
-        "value": "http://localhost:3000"
-      },
-      {
-        "id": "act-4",
         "type": "command",
         "label": "Start Dev Server",
         "value": "npm run dev"
       },
       {
+        "id": "act-3",
+        "type": "waitForUrl",
+        "label": "Wait Until Localhost Responds",
+        "value": "http://localhost:3000",
+        "timeout": 15000
+      },
+      {
+        "id": "act-4",
+        "type": "openUrl",
+        "label": "Open Localhost in Browser",
+        "value": "http://localhost:3000"
+      },
+      {
         "id": "act-5",
-        "type": "notification",
-        "label": "Notify Ready",
-        "value": "Development environment ready!"
+        "type": "snapWindow",
+        "label": "Maximize Browser Window",
+        "value": "Google Chrome",
+        "position": "maximize"
+      },
+      {
+        "id": "act-6",
+        "type": "speak",
+        "label": "Voice Announcement",
+        "value": "Development server is live on port 3000. Happy coding!"
       }
     ]
   },
   {
     "id": "template-study",
     "name": "Study & Research Session",
-    "description": "Prepares research workspace with browser tabs, notes app, and focus timer alert.",
+    "description": "Prepares research workspace with browser tabs, notes app, window layout, and voice alert.",
     "category": "Education",
     "actions": [
       {
@@ -51,9 +59,10 @@
       },
       {
         "id": "act-2",
-        "type": "wait",
-        "label": "Wait 1.5 seconds",
-        "value": 1500
+        "type": "snapWindow",
+        "label": "Snap Browser to Left Half",
+        "value": "Google Chrome",
+        "position": "left"
       },
       {
         "id": "act-3",
@@ -63,9 +72,16 @@
       },
       {
         "id": "act-4",
-        "type": "notification",
-        "label": "Focus Alert",
-        "value": "Focus session initialized. Good luck with your study!"
+        "type": "snapWindow",
+        "label": "Snap Notes to Right Half",
+        "value": "Notes",
+        "position": "right"
+      },
+      {
+        "id": "act-5",
+        "type": "speak",
+        "label": "Voice Encouragement",
+        "value": "Focus session initialized. Enjoy your study time!"
       }
     ]
   },
@@ -121,15 +137,9 @@
       },
       {
         "id": "act-3",
-        "type": "wait",
-        "label": "Wait 1 second",
-        "value": 1000
-      },
-      {
-        "id": "act-4",
-        "type": "notification",
-        "label": "Good Morning",
-        "value": "Morning workspace prepared. Have a productive day!"
+        "type": "speak",
+        "label": "Morning Briefing",
+        "value": "Good morning. Work environment is ready for {{USER}}."
       }
     ]
   }

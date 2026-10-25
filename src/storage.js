@@ -1,6 +1,7 @@
 /**
  * @fileoverview Crash-Resilient Storage Manager for Macro Studio.
- * Handles persistence of automation workflows and command security approval hashes.
+ * Handles persistence of automation workflows, export/import capabilities,
+ * and command security approval hashes.
  * Implements atomic writes (temp file + atomic rename) and automatic recovery
  * from corrupted files.
  *
@@ -208,6 +209,48 @@ async function setApproval(macroId, commandHash) {
   await writeJson(paths.approvalsFile, approvals);
 }
 
+/**
+ * Exports a single macro or all macros as formatted JSON.
+ * @param {string} [macroId]
+ * @returns {Promise<string>}
+ */
+async function exportJson(macroId) {
+  const all = await list();
+  if (macroId) {
+    const target = all.find((m) => m.id === macroId);
+    if (!target) throw new Error('Macro not found for export.');
+    return JSON.stringify(target, null, 2);
+  }
+  return JSON.stringify(all, null, 2);
+}
+
+/**
+ * Imports a macro or array of macros from a JSON string.
+ * @param {string} jsonString
+ * @returns {Promise<Array<object>>} The imported macros.
+ */
+async function importJson(jsonString) {
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch {
+    throw new Error('Invalid JSON format.');
+  }
+
+  const incoming = Array.isArray(parsed) ? parsed : [parsed];
+  const imported = [];
+
+  for (const item of incoming) {
+    // Generate new ID on import to avoid clashing with existing macros
+    const newId = makeId();
+    const clean = sanitizeMacro({ ...item, id: newId }, makeId);
+    await save(clean);
+    imported.push(clean);
+  }
+
+  return imported;
+}
+
 module.exports = {
   init,
   list,
@@ -217,5 +260,7 @@ module.exports = {
   setApproval,
   makeId,
   readJson,
-  writeJson
+  writeJson,
+  exportJson,
+  importJson
 };
