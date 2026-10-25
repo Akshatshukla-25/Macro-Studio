@@ -21,9 +21,9 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
+      "identity": null,
       "target": [
-        "dmg",
-        "zip"
+        "dmg"
       ]
     },
     "win": {
@@ -44,6 +44,7 @@
   "author": "Akshat Shukla",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^40.8.0"
+    "electron": "^40.8.0",
+    "electron-builder": "^26.18.0"
   }
 }
